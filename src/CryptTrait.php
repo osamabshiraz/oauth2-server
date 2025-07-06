@@ -1,41 +1,35 @@
 <?php
 
-/**
- * Encrypt/decrypt with encryptionKey.
- *
- * @author      Alex Bilbie <hello@alexbilbie.com>
- * @copyright   Copyright (c) Alex Bilbie
- * @license     http://mit-license.org/
- *
- * @link        https://github.com/thephpleague/oauth2-server
- */
-
-declare(strict_types=1);
-
 namespace League\OAuth2\Server;
 
 use Defuse\Crypto\Crypto;
-use Defuse\Crypto\Exception\EnvironmentIsBrokenException;
-use Defuse\Crypto\Exception\WrongKeyOrModifiedCiphertextException;
 use Defuse\Crypto\Key;
 use Exception;
-use InvalidArgumentException;
 use LogicException;
-
-use function is_string;
 
 trait CryptTrait
 {
-    protected string|Key|null $encryptionKey = null;
+    /**
+     * @var string|Key|null
+     */
+    protected $encryptionKey;
 
     /**
      * Encrypt data with encryptionKey.
      *
+     * @param string $unencryptedData
+     *
      * @throws LogicException
+     *
+     * @return string
      */
-    protected function encrypt(string $unencryptedData): string
+    protected function encrypt($unencryptedData)
     {
         try {
+            if (!$this->encryptionKey) {
+                $this->encryptionKey = Key::loadFromAsciiSafeString(config('app.encryption_key'));
+            }
+
             if ($this->encryptionKey instanceof Key) {
                 return Crypto::encrypt($unencryptedData, $this->encryptionKey);
             }
@@ -53,11 +47,19 @@ trait CryptTrait
     /**
      * Decrypt data with encryptionKey.
      *
+     * @param string $encryptedData
+     *
      * @throws LogicException
+     *
+     * @return string
      */
-    protected function decrypt(string $encryptedData): string
+    protected function decrypt($encryptedData)
     {
         try {
+            if (!$this->encryptionKey) {
+                $this->encryptionKey = Key::loadFromAsciiSafeString(config('app.encryption_key'));
+            }
+
             if ($this->encryptionKey instanceof Key) {
                 return Crypto::decrypt($encryptedData, $this->encryptionKey);
             }
@@ -67,24 +69,21 @@ trait CryptTrait
             }
 
             throw new LogicException('Encryption key not set when attempting to decrypt');
-        } catch (WrongKeyOrModifiedCiphertextException $e) {
-            $exceptionMessage = 'The authcode or decryption key/password used '
-                . 'is not correct';
-
-            throw new InvalidArgumentException($exceptionMessage, 0, $e);
-        } catch (EnvironmentIsBrokenException $e) {
-            $exceptionMessage = 'Auth code decryption failed. This is likely '
-                . 'due to an environment issue or runtime bug in the '
-                . 'decryption library';
-
-            throw new LogicException($exceptionMessage, 0, $e);
         } catch (Exception $e) {
             throw new LogicException($e->getMessage(), 0, $e);
         }
     }
 
-    public function setEncryptionKey(Key|string|null $key = null): void
-    {
-        $this->encryptionKey = $key;
-    }
+    /**
+     * Set the encryption key manually (optional if you want to override lazy load).
+     *
+     * @param string|Key|null $key
+     */
+ public function setEncryptionKey($key = null)
+{
+
+
+    $asciiSafeKey = config('app.encryption_key');
+    $this->encryptionKey = Key::loadFromAsciiSafeString($asciiSafeKey);
+}
 }
